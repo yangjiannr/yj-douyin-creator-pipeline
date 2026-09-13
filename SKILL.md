@@ -81,7 +81,7 @@ Create and keep this layout (see `references/folder-layout.md`):
 ```
 
 Video name: `yyyy-MM-dd_<title>_<aweme_id>.mp4`
-  (title = 视频标题去 #话题、清洗 Windows 非法字符、截断 30 字；标题全为话题/为空时回退 `yyyy-MM-dd_<aweme_id>.mp4`)
+  (title = 视频标题去 #话题、清洗 Windows 非法字符、截断 30 字；正文为空时用话题文字（如 #家长必读 → 家长必读），全空才回退 `yyyy-MM-dd_<aweme_id>.mp4`)
 Transcripts: same stem `.txt` + `.srt`  
 Logs split by stage/result — never dump everything into one folder.
 

@@ -111,7 +111,7 @@ python run_pipeline.py --creator-root F:/downloads/张老师不讲题 --mode all
 <root>/<博主名>/
 ├── meta/
 │   └── download_queue.csv      # aweme_id,publish_date,filename,aweme_url
-├── videos/                     # yyyy-MM-dd_<标题>_<aweme_id>.mp4（无标题时回退日期+ID）
+├── videos/                     # yyyy-MM-dd_<标题>_<aweme_id>.mp4（正文为空用话题文字，全空才回退日期+ID）
 ├── transcripts/                # 同名 .txt（全文）+ .srt（时间轴）
 ├── logs/
 │   ├── pipeline.log            # START / ASR_START / END

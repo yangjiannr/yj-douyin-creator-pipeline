@@ -23,19 +23,30 @@ def local_date_from_ts(ts) -> str:
 def clean_title(title: str) -> str:
     """Normalize a Douyin title for use in a filename.
 
-    - strip #hashtags and whitespace
+    - strip #hashtags first; if no body text remains, fall back to the
+      hashtag words themselves (e.g. '#家长必读 #学习习惯' -> '家长必读 学习习惯')
     - replace Windows-illegal characters with spaces
     - collapse inner whitespace, cap length at 30 chars
-    Returns '' when nothing usable remains (caller falls back to ID-only name).
+    Returns '' only when nothing usable remains (caller falls back to ID-only name).
     """
     import re
 
+    def _sanitize(t: str) -> str:
+        t = re.sub(r'[\\/:*?"<>|\r\n\t]', " ", t)
+        t = re.sub(r"\s+", " ", t).strip(" .")
+        return t[:30].strip(" .-_")
+
     if not title:
         return ""
-    t = re.sub(r"#[\w\u4e00-\u9fa5]+", "", title)  # strip #hashtags
-    t = re.sub(r'[\\/:*?"<>|\r\n\t]', " ", t)  # Windows-illegal chars
-    t = re.sub(r"\s+", " ", t).strip(" .")
-    return t[:30].strip(" .-_")
+    body = re.sub(r"#[\w\u4e00-\u9fa5]+", "", title)  # strip #hashtags
+    body = _sanitize(body)
+    if body:
+        return body
+    # Fallback: hashtag-only title -> use the tag words themselves
+    tags = re.findall(r"#[\w\u4e00-\u9fa5]+", title)
+    if tags:
+        return _sanitize(" ".join(tag.lstrip("#") for tag in tags))
+    return ""
 
 
 def from_jsonl(jsonl: Path) -> list[dict]:

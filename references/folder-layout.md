@@ -29,7 +29,7 @@
 
 ## Filename rules
 
-- Video: `yyyy-MM-dd_<title>_<aweme_id>.mp4` (title = cleaned video title, #hashtags stripped, Windows-illegal chars replaced, ≤30 chars; falls back to `yyyy-MM-dd_<aweme_id>.mp4` when title is empty/hashtags-only) using local publish date from `create_time`
+- Video: `yyyy-MM-dd_<title>_<aweme_id>.mp4` (title = cleaned video title, #hashtags stripped, Windows-illegal chars replaced, ≤30 chars; when body is empty, hashtag words are used, e.g. `#家长必读` → `家长必读`; only falls back to `yyyy-MM-dd_<aweme_id>.mp4` when nothing usable remains) using local publish date from `create_time`
 - Transcripts: same stem + `.txt` / `.srt` (SRT must have real sentence timestamps)
 - Skip download if target mp4 exists and size > 100KB
 - Skip transcript if both txt and srt exist and non-empty
