@@ -20,6 +20,24 @@ def local_date_from_ts(ts) -> str:
         return datetime.now().strftime("%Y-%m-%d")
 
 
+def clean_title(title: str) -> str:
+    """Normalize a Douyin title for use in a filename.
+
+    - strip #hashtags and whitespace
+    - replace Windows-illegal characters with spaces
+    - collapse inner whitespace, cap length at 30 chars
+    Returns '' when nothing usable remains (caller falls back to ID-only name).
+    """
+    import re
+
+    if not title:
+        return ""
+    t = re.sub(r"#[\w\u4e00-\u9fa5]+", "", title)  # strip #hashtags
+    t = re.sub(r'[\\/:*?"<>|\r\n\t]', " ", t)  # Windows-illegal chars
+    t = re.sub(r"\s+", " ", t).strip(" .")
+    return t[:30].strip(" .-_")
+
+
 def from_jsonl(jsonl: Path) -> list[dict]:
     rows = []
     seen = set()
@@ -39,7 +57,11 @@ def from_jsonl(jsonl: Path) -> list[dict]:
                 continue
             seen.add(aweme_id)
             publish_date = local_date_from_ts(o.get("create_time"))
-            filename = f"{publish_date}_{aweme_id}.mp4"
+            title = clean_title(str(o.get("title") or ""))
+            if title:
+                filename = f"{publish_date}_{title}_{aweme_id}.mp4"
+            else:
+                filename = f"{publish_date}_{aweme_id}.mp4"
             rows.append(
                 {
                     "aweme_id": aweme_id,
