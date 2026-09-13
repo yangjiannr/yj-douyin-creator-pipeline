@@ -1,0 +1,29 @@
+{
+  "skill_name": "yj-douyin-creator-pipeline",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我要把抖音博主主页 https://www.douyin.com/user/MS4wLjABAAAAcvbSWREe7-K3XE0N6P8tNO-yCCR4R7dApCLWo4-lscqXUwV48Eqw2GQw-Dmb2R3W 的作品全部抓下来，博主文件夹叫「许老师学习方法」。先跟我确认根目录和计划，不要立刻开下。",
+      "expected_output": "Asks about last root F:/downloads (or accepts override), confirms creator folder name, outlines MediaCrawler→queue→serial videodl→short-first FunASR/Whisper plan with folder layout and filename pattern; offers optional ASR quality preview; does not start bulk download yet.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "已有 MediaCrawler 的 contents.jsonl（在 F:/downloads/许老师学习方法/meta/）。请只重建 download_queue.csv，文件名用发布时间_视频ID.mp4，然后说明如何续跑下载+转写，但先不要启动全量。",
+      "expected_output": "Uses init_queue.py (or equivalent) to rebuild meta/download_queue.csv with aweme_id,publish_date,filename,aweme_url; reports row count; explains resume via run_pipeline.py --mode all|download|asr with skip-existing and short-first ASR; no full pipeline start unless asked.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "流水线中断了。请检查 F:/downloads/许老师学习方法 的 videos/transcripts/logs，告诉我下载和转写各完成多少、有没有失败，以及怎样只重试失败项。",
+      "expected_output": "Reads logs and folder counts; summarizes downloaded vs queued, transcript success/fail; recommends re-running pipeline for skip-based resume and/or filtering failed URLs from download_failed.log / transcript_failed.log.",
+      "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "用 FunASR 转 F:/downloads/许老师学习方法/videos 里一个短视频，我要看有没有分句时间轴的 srt。机器有点卡，先别开下载。",
+      "expected_output": "Does not start download; runs FunASR with sentence_timestamp (via skill transcribe_one.py); produces .txt+.srt with many timed cues (not a single 0–1s block); tells user where to open the files.",
+      "files": []
+    }
+  ]
+}
