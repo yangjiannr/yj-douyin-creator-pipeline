@@ -138,6 +138,7 @@ Logs split by stage/result — never dump everything into one folder.
 - Write both `.txt` (plain lines) and `.srt` (timed). Reject “success” if SRT has only 1 cue spanning ~1s for a multi-minute video.
 - Skip if both transcript files already exist and non-empty.
 - Log to `transcript_success.log` / `transcript_failed.log`; log `ASR_START` / `ASR_SEEDED` in `pipeline.log`.
+- **按下载完成时间顺序转写（推荐全量场景）**: 用户口径 —— ① 下载成功超过 5 个才开始；② 不按文件大小；③ 按下载完成时间（mp4 mtime 升序）；④ 剩余最后 2 个未转录时暂停等新下载，下载器不再运行（锁释放/死锁）才收尾退出。用 `scripts/asr_ordered.py --creator-root <path>`（自持 `logs/asr.lock`，不占用 `pipeline.lock`，可与 `download_direct.py` 并行）。
 
 ## Pipeline modes
 
@@ -153,9 +154,9 @@ Quality check pattern users liked: stop download → `--mode asr` on a few short
 **并行模式（推荐全量场景）**: 下载走网络、ASR 走 CPU，可同时跑——
 ```text
 python scripts/download_direct.py --creator-root <path>          # 终端1：直链下载
-python scripts/run_pipeline.py --creator-root <path> --mode asr --asr-lock-shared   # 终端2：并行转写（读完已有视频后新下载的等下一轮 asr 补）
+python scripts/asr_ordered.py --creator-root <path>              # 终端2：并行转写（按下载完成时间顺序 + 背压暂停，推荐）
 ```
-ASR 结束后再跑一次 `--mode asr`（无共享锁）补尾，即可覆盖下载期间新增的视频。
+也可用 `run_pipeline.py --mode asr --asr-lock-shared`（短优先）作为替代；ASR 结束后再跑一次 `--mode asr` 补尾覆盖收尾新视频。
 
 ## Concurrency & resume
 
@@ -172,6 +173,7 @@ ASR 结束后再跑一次 `--mode asr`（无共享锁）补尾，即可覆盖下
 | `scripts/init_queue.py` | Build `download_queue.csv` from jsonl/urls |
 | `scripts/run_pipeline.py` | Config-driven serial download + short-first ASR |
 | `scripts/transcribe_one.py` | One video → txt+srt (FunASR with sentence timestamps / Whisper) |
+| `scripts/asr_ordered.py` | 按下载完成时间顺序转写 + 背压暂停（>5 个下载才开始、最后 2 个暂停、下载器退出才收尾） |
 | `scripts/download_direct.py` | 直链优先下载器：签名 `video_download_url` → mp4（移动 UA+Referer，免 cookie），失败回退 KedouVideoClient；与 run_pipeline 共用 logs/lock，可续跑 |
 | `scripts/retry_failed.py` | 定向重试：从 `download_failed.log` 读取失败项多轮重试（跳过已成功文件），可配 `--max-passes`/sleep |
 
