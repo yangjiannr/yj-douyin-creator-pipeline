@@ -146,12 +146,21 @@ Logs split by stage/result — never dump everything into one folder.
 | `--mode all` (default) | Serial download + 1 ASR worker |
 | `--mode download` | Download only (skip ASR enqueue) |
 | `--mode asr` | No new downloads; seed existing videos short-first and transcribe |
+| `--asr-lock-shared`（配合 `--mode asr`） | 与正在运行的下载进程共享锁：不写锁/不删锁，只读队列做 ASR，实现「直链下载 + 转写」并行 |
 
 Quality check pattern users liked: stop download → `--mode asr` on a few shorts (or run `transcribe_one.py` on named files) → review → resume `--mode all` / `--mode download`. Resume is safe because existing mp4/txt/srt are skipped.
 
+**并行模式（推荐全量场景）**: 下载走网络、ASR 走 CPU，可同时跑——
+```text
+python scripts/download_direct.py --creator-root <path>          # 终端1：直链下载
+python scripts/run_pipeline.py --creator-root <path> --mode asr --asr-lock-shared   # 终端2：并行转写（读完已有视频后新下载的等下一轮 asr 补）
+```
+ASR 结束后再跑一次 `--mode asr`（无共享锁）补尾，即可覆盖下载期间新增的视频。
+
 ## Concurrency & resume
 
-- Use `logs/pipeline.lock` with PID; refuse a second concurrent pipeline.
+- Use `logs/pipeline.lock` with PID; refuse a second concurrent pipeline（`--mode asr --asr-lock-shared` 除外，它与下载进程并行，只读队列）。
+- 下载进程异常退出会残留锁文件；`download_direct.py`/`retry_failed.py` 启动时会检测锁内 PID 是否存活，死锁自动清除。
 - Before starting, ensure no orphan `run_pipeline.py` / `videodl` / duplicate `transcribe_one.py` for the same creator root.
 - Resume = re-run the same pipeline: existing videos/transcripts are skipped.
 - Failed rows stay in logs for targeted retry.

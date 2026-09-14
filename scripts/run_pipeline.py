@@ -87,6 +87,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--creator-root", required=True, help="e.g. F:/downloads/许老师学习方法")
     ap.add_argument("--mode", choices=["all", "download", "asr"], default="all")
+    ap.add_argument("--asr-lock-shared", action="store_true", help="--mode asr only: proceed if another live pipeline holds the lock (download-only run)")
     args = ap.parse_args()
 
     root = Path(args.creator_root)
@@ -137,7 +138,8 @@ def main() -> int:
         return 2
 
     lock = logs / "pipeline.lock"
-    if lock.exists():
+    lock_shared_asr = args.asr_lock_shared and mode == "asr"
+    if lock.exists() and not lock_shared_asr:
         try:
             old_pid = int(lock.read_text(encoding="utf-8").strip().splitlines()[0])
             import ctypes
@@ -150,7 +152,8 @@ def main() -> int:
             raise
         except Exception:
             pass
-    lock.write_text(f"{os.getpid()}\n{now()}\n", encoding="utf-8")
+    if not lock_shared_asr:
+        lock.write_text(f"{os.getpid()}\n{now()}\n", encoding="utf-8")
 
     rows = []
     with queue_csv.open("r", encoding="utf-8-sig", newline="") as f:
@@ -356,10 +359,11 @@ def main() -> int:
         print(f"[{now()}] downloads done ok={done} skip={skipped} fail={failed} (ASR skipped)")
 
     append_log(logs / "pipeline.log", f"END mode={mode} download_ok={done} skip={skipped} fail={failed}")
-    try:
-        lock.unlink(missing_ok=True)
-    except Exception:
-        pass
+    if not lock_shared_asr:
+        try:
+            lock.unlink(missing_ok=True)
+        except Exception:
+            pass
     print(f"[{now()}] all done")
     return 0
 
