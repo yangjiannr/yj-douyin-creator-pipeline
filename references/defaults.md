@@ -15,7 +15,7 @@
 | `videodl_exe` | Path to `videodl.exe` |
 | `videodl_cwd` | Working directory when invoking videodl |
 | `asr_python` | Python with FunASR (preferred) or faster-whisper; empty = auto-detect under `<creator_root>/scripts/funasr_venv` |
-| `download_client` | Default `KedouVideoClient` |
+| `download_client` | 兜底客户端，默认 `KedouVideoClient`（kedou.life 上游间歇性不可用，主通道用直链 `video_download_url`） |
 | `ffmpeg_bin` | FFmpeg bin dir (e.g. `D:/300GitHub/ffmpeg/bin`); auto-prepended to PATH (videodl merge + wav extraction need it) |
 | `hf_endpoint` | HF mirror for whisper fallback, default `https://hf-mirror.com` |
 | `hf_hub_disable_xet` | `true` to bypass HF new xet storage (CAS 401), default `true` |
@@ -41,6 +41,12 @@ Before any run:
 - videodl: `pip install videofetch` (CLI `videodl`); use official PyPI — mirrors (TUNA) 403 on some packages; FFmpeg on PATH via `ffmpeg_bin`
 - ASR: FunASR (+ torch) preferred; faster-whisper as fallback
 - First FunASR run downloads ModelScope models (~2GB total). CN direct is often 30MB/s+; TUNA Hugging Face mirror does **not** replace ModelScope
+
+## Download strategy (2026-09 实战)
+
+- 主通道：MediaCrawler 抓取结果里的签名 `video_download_url` 直链（`scripts/download_direct.py`），移动 UA + `Referer` 免 cookie 直下，秒级/条。
+- 兜底：`KedouVideoClient`（videodl）。其上游 kedou.life 常返回 `code 555 找不到资源`，实战成功率约 1/3，只作 fallback。
+- 签名直链有时效（数小时）；批量 403 时重新抓取刷新，再续跑即可。
 
 ## Run modes
 

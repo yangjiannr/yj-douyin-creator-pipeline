@@ -6,7 +6,8 @@ description: >-
   .txt+.srt under F:/downloads/<博主名>/. Use whenever the user asks to 抓抖音博主
   全部视频、批量下载抖音、MediaCrawler 抖音主页、videodl 串行下载、视频转文字/
   转写口播文案、FunASR/Whisper 字幕、短视频优先转写、暂停下载只转录、续跑失败下载、
-  导出 aweme 链接列表、或提到 yj-douyin-creator-pipeline, even if they only
+  导出 aweme 链接列表、直链下载/签名直链/video_download_url、下载限流/找不到资源、
+  或提到 yj-douyin-creator-pipeline, even if they only
   provide a Douyin user URL or an existing URL list.
 ---
 
@@ -44,7 +45,7 @@ Critical defaults from this machine (override per project):
 - `videodl_exe`: `D:/300GitHub/videodl/.venv/Scripts/videodl.exe`
 - `ffmpeg_bin`: `D:/300GitHub/ffmpeg/bin` (自动注入 PATH；videodl 合并音视频与 ffmpeg 抽音轨必需)
 - Whisper 兜底走镜像: `hf_endpoint: https://hf-mirror.com` + `hf_hub_disable_xet: true` (HF 新 xet 存储直连会 401/超时)
-- Download client: `KedouVideoClient`
+- Download: **直链优先**（签名 `video_download_url` 直接 HTTP 下载，移动 UA+Referer，免 cookie，秒级/条）→ 兜底 `KedouVideoClient`（其上游 kedou.life 间歇性不可用，勿作主通道）
 - Sleep between downloads: random **3–8s**
 - ASR: **FunASR primary** (`asr_engine=auto`), Whisper `medium` fallback
 - ASR order: **short videos first** (`long_video_bytes` ≈ 80MB deferred)
@@ -92,12 +93,15 @@ Logs split by stage/result — never dump everything into one folder.
    - platform `dy`, type `creator`
    - comments off unless user asks
 3. Export into `meta/`:
-   - `contents.jsonl`
+   - `contents.jsonl`（原始全部，含图文帖）
+   - `contents_videos.jsonl`（仅 `aweme_type=0` 视频，含 `video_download_url` 签名直链，供直链下载）
    - `video_urls.txt` / `video_urls.csv`
    - `download_queue.csv` with columns: `aweme_id,publish_date,filename,aweme_url`
 4. `publish_date` = local date from MediaCrawler `create_time`.
 5. Copy pipeline scripts from this skill into `<creator_root>/scripts/` if missing (always refresh `transcribe_one.py` when skill ASR logic changes).
-6. Start `run_pipeline.py --creator-root <path>` (single instance; lock file required).
+6. 下载建议用 `scripts/download_direct.py --creator-root <path>`（直链优先，失败回退 KedouVideoClient）；
+   转写用 `run_pipeline.py --creator-root <path> --mode asr`（短视频优先）。
+   （`run_pipeline.py --mode all` 仍可用，但默认走 KedouVideoClient，成功率低。）
 
 ## Workflow B — existing queue / URL list
 
@@ -107,7 +111,10 @@ Logs split by stage/result — never dump everything into one folder.
 
 ## Download rules
 
-- Serial only (one videodl job at a time).
+- **直链优先（推荐）**: 用 MediaCrawler 抓取的签名直链 `video_download_url` 直接下载——移动端 UA + `Referer: https://www.douyin.com/`，**无需 cookie**，单条约几秒。用 `scripts/download_direct.py`（直链优先，失败/过期自动回退 KedouVideoClient）。
+- **签名直链有时效**: 抓取后数小时内有效；出现成片 403/过期时，重新跑 MediaCrawler 抓取刷新 URL，再续跑 `download_direct.py`（已有 mp4 自动跳过）。
+- **KedouVideoClient 仅作兜底**: 其上游 kedou.life 间歇性返回 `code 555 找不到资源`（`data: null` → videodl 报 `'NoneType' object is not subscriptable`），实战成功率约 1/3，勿作主通道。
+- Serial only (one download job at a time).
 - Client: `KedouVideoClient` via videodl (`-g -a KedouVideoClient`).
 - After each download attempt, sleep random 3–8 seconds.
 - Skip if target mp4 already exists (>100KB).
@@ -156,6 +163,8 @@ Quality check pattern users liked: stop download → `--mode asr` on a few short
 | `scripts/init_queue.py` | Build `download_queue.csv` from jsonl/urls |
 | `scripts/run_pipeline.py` | Config-driven serial download + short-first ASR |
 | `scripts/transcribe_one.py` | One video → txt+srt (FunASR with sentence timestamps / Whisper) |
+| `scripts/download_direct.py` | 直链优先下载器：签名 `video_download_url` → mp4（移动 UA+Referer，免 cookie），失败回退 KedouVideoClient；与 run_pipeline 共用 logs/lock，可续跑 |
+| `scripts/retry_failed.py` | 定向重试：从 `download_failed.log` 读取失败项多轮重试（跳过已成功文件），可配 `--max-passes`/sleep |
 
 Prefer these scripts over ad-hoc one-off commands so behavior stays consistent. When deploying into a creator folder, overwrite `scripts/transcribe_one.py` from the skill so timestamp fixes ship.
 
@@ -177,6 +186,8 @@ How to view results: open `<creator_root>/transcripts/` (`.txt` full text, `.srt
 - MediaCrawler teaching builds may mask nickname/uid — ask user for the real folder display name.
 - Signed `video_download_url` from crawl may expire; always re-resolve via videodl URL.
 - KedouVideoClient 单视频解析约 171s（属正常慢，勿中途杀进程误判卡死）。
+- 直链下载风险低：不携带登录 cookie、与账号解耦、请求频率温和（间隔 10–20s+）。若成片 403/速度骤降 → 放慢或暂停后续跑；最坏结果是 URL 失效，不会封号。
+- kedou.life 间歇性 `找不到资源`（code 555）是第三方服务自身问题，不是抖音风控；失败属预期，用 `retry_failed.py` 多轮补下。
 - 抓取的 `video_download_url` 直链直接下载通常 403（缺完整登录 cookie），必须走 videodl 重解析。
 - 抖音博主昵称可能被平台掩码（如「张***题」），文件夹名用用户确认的真实名。
 - FunASR models download from ModelScope (often already fast in CN). TUNA Hugging Face mirror helps Whisper/HF, not ModelScope.
