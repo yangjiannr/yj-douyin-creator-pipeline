@@ -182,8 +182,24 @@ def main() -> int:
 
     lock = logs / "pipeline.lock"
     if lock.exists():
-        print(f"[{now()}] lock exists: {lock.read_text(encoding='utf-8')}")
-        return 2
+        stale = False
+        try:
+            old_pid = int(lock.read_text(encoding="utf-8").strip().splitlines()[0])
+            import ctypes
+
+            handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, old_pid)
+            if handle:
+                ctypes.windll.kernel32.CloseHandle(handle)
+            else:
+                stale = True
+        except Exception:
+            stale = True
+        if stale:
+            print(f"[{now()}] stale lock (dead pid), removing: {lock.read_text(encoding='utf-8').strip()}")
+            lock.unlink(missing_ok=True)
+        else:
+            print(f"[{now()}] lock exists (alive): {lock.read_text(encoding='utf-8')}")
+            return 2
     lock.write_text(f"{os.getpid()}\n{now()}\n", encoding="utf-8")
 
     queue_csv = meta / "download_queue.csv"
