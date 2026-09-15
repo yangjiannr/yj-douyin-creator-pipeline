@@ -128,7 +128,7 @@ Logs split by stage/result — never dump everything into one folder.
 - One transcript worker while downloads continue (unless `--mode download`).
 - After each successful download, enqueue ASR. On start, **seed** already-downloaded videos missing transcripts.
 - **Short-first**: PriorityQueue by file size; files ≥ `long_video_bytes` (default 80MB) go to the long bucket and wait until shorts finish. Long videos otherwise block the queue for a long time.
-- Prefer FunASR; on failure/unavailable → Whisper (`whisper_model`, default `medium`).
+- Prefer FunASR; on failure/unavailable → Whisper (`whisper_model`, default `medium`)。**FunASR 无输出（VAD empty speech / BGM-only）也必须走 Whisper 确认 no_speech 或补转**（`transcribe_one.py` 已内置；勿把 `asr_engine` 配成 `funasr` 跳过兜底；兜底依赖 `faster_whisper` 已安装）。
 - **FunASR timestamps are mandatory for usable SRT**:
   - Call `generate(..., sentence_timestamp=True)` so `sentence_info` has start/end ms.
   - Without this flag, FunASR often returns only char-level `timestamp` and the old code wrote one fake cue `00:00:00 → 00:00:01` for the whole video.
