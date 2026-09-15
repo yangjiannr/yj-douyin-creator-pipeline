@@ -259,8 +259,8 @@ def main() -> int:
             if segments:
                 engine_used = "funasr"
         if segments is None:
-            if args.engine == "funasr":
-                raise RuntimeError("FunASR unavailable")
+            # FunASR found nothing (VAD empty speech / BGM-only / model error):
+            # always fall back to Whisper to confirm no-speech or transcribe.
             segments, wstatus = try_whisper(wav, args.whisper_model)
             if segments:
                 engine_used = f"whisper:{args.whisper_model}"
