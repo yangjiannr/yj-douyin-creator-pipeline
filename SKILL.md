@@ -45,6 +45,7 @@ Critical defaults from this machine (override per project):
 - `videodl_exe`: `D:/300GitHub/videodl/.venv/Scripts/videodl.exe`
 - `ffmpeg_bin`: `D:/300GitHub/ffmpeg/bin` (自动注入 PATH；videodl 合并音视频与 ffmpeg 抽音轨必需)
 - Whisper 兜底走镜像: `hf_endpoint: https://hf-mirror.com` + `hf_hub_disable_xet: true` (HF 新 xet 存储直连会 401/超时)
+- **Crawl scope: 只抓最近 1000 条作品**（`CRAWLER_MAX_NOTES_COUNT=1000`）——2026-09 实战约定：抖音风控（ArgusSecurity）会在数百~上千条后中断抓取，1000 条内用「冷却数小时重跑 + 按 aweme_id 去重合并」补缺口；**超过 1000 条的最老作品不再深挖**（除非用户明确要求并接受风控成本）
 - Download: **直链优先**（签名 `video_download_url` 直接 HTTP 下载，移动 UA+Referer，免 cookie，秒级/条）→ 兜底 `KedouVideoClient`（其上游 kedou.life 间歇性不可用，勿作主通道）
 - Sleep between downloads: random **3–8s**
 - ASR: **FunASR primary** (`asr_engine=auto`), Whisper `medium` fallback
@@ -67,7 +68,7 @@ One-time install on a fresh machine:
 MediaCrawler 抓抖音需改两处配置（参考本次实战）：
 
 - `config/base_config.py`：`PLATFORM="dy"`、`CRAWLER_TYPE="creator"`、`ENABLE_GET_COMMENTS=False`、
-  `CRAWLER_MAX_NOTES_COUNT=99999`、`CDP_CONNECT_EXISTING=False`
+  `CRAWLER_MAX_NOTES_COUNT=1000`（**只抓最近 1000 条**；勿设 99999，全量深挖会被风控中断且边际收益低）、`CDP_CONNECT_EXISTING=False`
 - `config/dy_config.py`：`DY_CREATOR_ID_LIST` 填入博主主页 URL 或 `sec_user_id`
 
 抓取后 jsonl 可能含重复条目（同 aweme_id），`init_queue.py` 负责去重。
@@ -92,6 +93,7 @@ Logs split by stage/result — never dump everything into one folder.
 2. Run creator crawl for the given `sec_user_id` / user URL:
    - platform `dy`, type `creator`
    - comments off unless user asks
+   - **只抓最近 1000 条**（默认，`CRAWLER_MAX_NOTES_COUNT=1000`）；用户要求更早内容时先说明风控风险再扩量
 3. Export into `meta/`:
    - `contents.jsonl`（原始全部，含图文帖）
    - `contents_videos.jsonl`（仅 `aweme_type=0` 视频，含 `video_download_url` 签名直链，供直链下载）
